@@ -95,6 +95,16 @@ export function ZooMap() {
           </article>
         ))}
       </div>
+      <section className="zoo-links">
+        <h4>Noch mehr entdecken</h4>
+        <p>Hier findest du mehr zum Zoo und zum Artenschutz:</p>
+        <a href="https://www.walterzoo.ch" target="_blank" rel="noreferrer">
+          Walter Zoo Website
+        </a>
+        <a href="https://www.walterzoo.ch/tiere-artenschutz" target="_blank" rel="noreferrer">
+          Mehr zu Artenschutz im Walter Zoo
+        </a>
+      </section>
 
       <VideoPlayer
         video={selectedVideo}
