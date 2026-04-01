@@ -1,4 +1,3 @@
-import { DemoControls } from "./DemoControls";
 import { useMirrorSync } from "../hooks/useMirrorSync";
 import { useEffect } from "react";
 
@@ -21,7 +20,6 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="desktop-stage">
-      <DemoControls />
       <div className="phone-frame">
         <div className="phone-notch">
           <span className="camera-dot" />

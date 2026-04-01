@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "concurrently -n frontend,backend -c green,blue \"npm run dev -w frontend\" \"npm run dev -w backend\"",
     "dev:mobile": "concurrently -n frontend,backend -c green,blue \"npm run dev -w frontend -- --host\" \"npm run dev -w backend\"",
+    "dev:controller": "npm run dev:controller -w frontend",
+    "dev:mobile:controller": "concurrently -n frontend,controller,backend -c green,magenta,blue \"npm run dev -w frontend -- --host\" \"npm run dev:controller -w frontend\" \"npm run dev -w backend\"",
     "ip:laptop": "sh -c 'ipconfig getifaddr en0 || ipconfig getifaddr en1'",
     "build": "npm run build -w frontend && npm run build -w backend",
     "lint": "npm run lint -w frontend"

@@ -82,12 +82,12 @@ Die App ist mobile-first (max. 430px), wird aber auf dem Laptop in einem visuell
 
 ## Mirror Mode (Laptop steuert Handy)
 
-Mit Mirror Mode kannst du den Demo-Controller auf dem Laptop offen lassen und gleichzeitig eine "echte" Handy-Ansicht ohne Demo-Controls und ohne Fake-Phone-Frame auf dem Smartphone anzeigen.
+Mit Mirror Mode laeuft der Demo-Controller jetzt als eigene Oberfläche auf einem separaten Port. So bleibt die App-Ansicht sauber (ohne Demo-Panel) und du steuerst alles von einer zweiten UI.
 
-1. Projekt im Mobile-Setup starten:
+1. Projekt inkl. Controller im Mobile-Setup starten:
 
 ```bash
-npm run dev:mobile
+npm run dev:mobile:controller
 ```
 
 2. Laptop-IP auslesen:
@@ -98,8 +98,8 @@ npm run ip:laptop
 
 3. URLs im Browser oeffnen:
 
-- Laptop (Controller): `http://<LAPTOP_IP>:5173?role=controller`
+- Laptop (Controller UI): `http://<LAPTOP_IP>:5174`
 - Handy (Mirror): `http://<LAPTOP_IP>:5173?role=mirror`
 
 Was synchronisiert wird:
-- Demo-Controls vom Laptop (`Companion zuruecksetzen`, Feed-/Quiz-/Challenge-Reset, `Happiness setzen`) werden live auf den Mirror uebertragen.
+- Demo-Commands vom Controller (`Companion zuruecksetzen`, Feed-/Quiz-/Challenge-Reset, `Happiness setzen`) werden live auf alle verbundenen App-Clients uebertragen.
