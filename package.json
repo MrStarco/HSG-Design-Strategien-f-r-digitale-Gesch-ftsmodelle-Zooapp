@@ -1,0 +1,26 @@
+{
+  "name": "walter-zoo-app",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Walter Zoo – Mein Tierfreund Prototype",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n frontend,backend -c green,blue \"npm run dev -w frontend\" \"npm run dev -w backend\"",
+    "dev:mobile": "concurrently -n frontend,backend -c green,blue \"npm run dev -w frontend -- --host\" \"npm run dev -w backend\"",
+    "ip:laptop": "sh -c 'ipconfig getifaddr en0 || ipconfig getifaddr en1'",
+    "build": "npm run build -w frontend && npm run build -w backend",
+    "lint": "npm run lint -w frontend"
+  },
+  "keywords": [
+    "walter-zoo",
+    "prototype",
+    "react"
+  ],
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
