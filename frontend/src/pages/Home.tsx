@@ -262,7 +262,12 @@ export function Home() {
             setQuizOpen(true);
           }}
         >
-          <Brain size={16} /> Quiz {quizLocked ? `🔒 ${quizTimer}` : ""}
+          <Brain size={16} />{" "}
+          {quizLocked
+            ? `🔒 ${quizTimer}`
+            : quizAttemptsInCycle > 0 && quizAttemptsInCycle < 3
+              ? `Quiz · Frage ${quizAttemptsInCycle + 1} von 3`
+              : "Quiz"}
         </button>
         <button
           className="action-map"
