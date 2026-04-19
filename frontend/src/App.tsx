@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { BottomNav } from "./components/BottomNav";
 import { FloatingCompanion } from "./components/FloatingCompanion";
+import { HappinessToastHost } from "./components/HappinessToastHost";
 import { MirrorReceiver } from "./components/MirrorReceiver";
 import { PhoneFrame } from "./components/PhoneFrame";
 import { useAppContext } from "./context/AppContext";
@@ -31,6 +32,7 @@ function App() {
           <BottomNav />
         </div>
       )}
+      <HappinessToastHost />
       <MirrorReceiver />
     </PhoneFrame>
   );

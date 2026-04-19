@@ -6,6 +6,9 @@ export const storageKeys = {
   xp: "wz-xp",
   feedReadyAt: "wz-feed-ready-at",
   quizReadyAt: "wz-quiz-ready-at",
+  quizSessionStart: "wz-quiz-session-start",
+  quizAttempts: "wz-quiz-attempts",
+  quizUsedQuestionIds: "wz-quiz-used-ids",
   recentVideos: "wz-recent-videos",
 };
 

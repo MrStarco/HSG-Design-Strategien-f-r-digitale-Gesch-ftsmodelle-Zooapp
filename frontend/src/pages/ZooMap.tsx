@@ -1,10 +1,17 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
+import { MapPinned } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { VideoPlayer } from "../components/VideoPlayer";
+import { FactSheet } from "../components/FactSheet";
 import { ZooVectorMap } from "../components/ZooVectorMap";
-import { walterZooChannelHandle, zooCategories, zooEvents, videos } from "../data/animals";
+import { walterZooChannelHandle, videos } from "../data/animals";
+import { animalCategoryFacts } from "../data/animalCategories";
+import { artenschutzFacts, type Fact } from "../data/artenschutz";
+import { openingHoursFact, zooEventFacts } from "../data/zooInfo";
+import { getFactById, pickDemoTopicLinks, type TopicLink } from "../lib/factRegistry";
 import { fetchRandomChannelVideo } from "../lib/youtube";
 import type { VideoItem } from "../types";
+
+const VideoPlayer = lazy(() => import("../components/VideoPlayer").then((m) => ({ default: m.VideoPlayer })));
 
 function zooOpenStatus() {
   const now = new Date();
@@ -15,20 +22,15 @@ function zooOpenStatus() {
 
 export function ZooMap() {
   const navigate = useNavigate();
-  const [openFact, setOpenFact] = useState<number | null>(0);
+  const [openFact, setOpenFact] = useState<Fact | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
+  const [selectedTopics, setSelectedTopics] = useState<TopicLink[]>([]);
   const [loadingVideoId, setLoadingVideoId] = useState<string | null>(null);
   const mapVideos = useMemo(() => videos.slice(0, 9), []);
-  const facts = [
-    ["Was ist Artenschutz?", "Artenschutz bedeutet, Tiere und ihre Lebensräume langfristig zu schützen."],
-    ["Wie hilft ein Zoo?", "Moderne Zoos züchten bedrohte Arten und unterstützen Forschungsprojekte."],
-    ["Was ist die IUCN Rote Liste?", "Die IUCN Liste zeigt, welche Arten bedroht sind und wie stark."],
-    ["Was tut der Walter Zoo konkret?", "Der Zoo unterstützt Artenschutzprogramme und vermittelt Wissen in der Zooschule."],
-    ["Kann ich helfen?", "Ja! Durch bewussten Konsum, Mülltrennung und Respekt gegenüber der Natur."],
-  ];
 
   const openRandomWalterZooVideo = async (video: VideoItem) => {
     setLoadingVideoId(video.id);
+    setSelectedTopics(pickDemoTopicLinks(`zoomap-${video.id}`, 2));
     try {
       const randomVideo = await fetchRandomChannelVideo(walterZooChannelHandle);
       setSelectedVideo({
@@ -43,26 +45,60 @@ export function ZooMap() {
     }
   };
 
+  const handleTopicFromVideo = (topic: TopicLink) => {
+    const fact = getFactById(topic.factId);
+    if (!fact) return;
+    setSelectedVideo(null);
+    setOpenFact(fact);
+  };
+
   return (
     <main className="page">
-      <h2>🗺️ Interaktive Zoo-Karte</h2>
+      <h2>
+        <MapPinned size={22} style={{ verticalAlign: "middle", marginRight: 6 }} aria-hidden />
+        Karte
+      </h2>
       <section className="map-card">
         <ZooVectorMap onCompanionClick={(id) => navigate(`/profiles/${id}`)} />
       </section>
 
-      <p className="open-status">{zooOpenStatus()}</p>
+      <button
+        type="button"
+        className="open-status"
+        onClick={() => setOpenFact(openingHoursFact)}
+        aria-label={`${zooOpenStatus()} – Mehr zu Öffnungszeiten`}
+      >
+        <span>{zooOpenStatus()}</span>
+        <span className="open-status-more" aria-hidden>Mehr ›</span>
+      </button>
       <div className="events-row">
-        {zooEvents.map((event) => (
-          <article key={event}>{event}</article>
+        {zooEventFacts.map((event) => (
+          <button
+            key={event.id}
+            type="button"
+            className="event-chip"
+            onClick={() => setOpenFact(event)}
+            aria-label={`${event.title} – Mehr erfahren`}
+          >
+            {event.shortLabel}
+          </button>
         ))}
       </div>
 
-      <h3>Entdecke unsere Tiere 🐾</h3>
+      <h3>Tiere 🐾</h3>
       <div className="chips-row">
-        {zooCategories.map((category) => (
-          <button key={category}>{category}</button>
+        {animalCategoryFacts.map((category) => (
+          <button
+            key={category.id}
+            type="button"
+            onClick={() => setOpenFact(category)}
+            aria-label={`${category.shortLabel} – Mehr erfahren`}
+          >
+            {category.shortLabel}
+          </button>
         ))}
       </div>
+      <h3>📺 Aktuelles aus dem Zoo</h3>
       <div className="video-row">
         {mapVideos.map((video) => (
           <button
@@ -73,13 +109,13 @@ export function ZooMap() {
             onClick={() => void openRandomWalterZooVideo(video)}
           >
             <div
-              className="thumb"
+              className={`thumb${loadingVideoId === video.id ? " thumb--loading" : ""}`}
               style={{
                 backgroundImage: `url(${video.previewUrl ?? video.thumbnailUrl ?? video.fallbackImageUrl ?? ""})`,
               }}
             >
               <span className="thumb-play">▶</span>
-              <span className="thumb-duration">{loadingVideoId === video.id ? "Lädt..." : video.duration}</span>
+              <span className="thumb-duration">{loadingVideoId === video.id ? "Lädt…" : video.duration}</span>
             </div>
             <p>{video.title}</p>
           </button>
@@ -87,14 +123,24 @@ export function ZooMap() {
       </div>
 
       <h3>🌍 Wusstest du? Artenschutz erklärt</h3>
-      <div className="facts">
-        {facts.map(([title, text], index) => (
-          <article key={title}>
-            <button onClick={() => setOpenFact((current) => (current === index ? null : index))}>{title}</button>
-            {openFact === index && <p>{text}</p>}
-          </article>
+      <div className="fact-grid">
+        {artenschutzFacts.map((fact) => (
+          <button
+            key={fact.id}
+            type="button"
+            className="fact-card"
+            onClick={() => setOpenFact(fact)}
+            aria-label={`${fact.title} – Mehr erfahren`}
+          >
+            <span className="fact-card-emoji" aria-hidden>{fact.emoji}</span>
+            <span className="fact-card-text">
+              <strong>{fact.title}</strong>
+              <small>{fact.teaser}</small>
+            </span>
+          </button>
         ))}
       </div>
+      <FactSheet fact={openFact} onClose={() => setOpenFact(null)} />
       <section className="zoo-links">
         <h4>Noch mehr entdecken</h4>
         <p>Hier findest du mehr zum Zoo und zum Artenschutz:</p>
@@ -106,13 +152,17 @@ export function ZooMap() {
         </a>
       </section>
 
-      <VideoPlayer
-        video={selectedVideo}
-        showCompanionText={false}
-        showDescription={false}
-        showUnavailableHint={false}
-        onClose={() => setSelectedVideo(null)}
-      />
+      <Suspense fallback={<div className="video-skeleton" aria-hidden />}>
+        <VideoPlayer
+          video={selectedVideo}
+          showCompanionText={false}
+          showDescription={false}
+          showUnavailableHint={false}
+          topicLinks={selectedTopics}
+          onTopicSelect={handleTopicFromVideo}
+          onClose={() => setSelectedVideo(null)}
+        />
+      </Suspense>
     </main>
   );
 }

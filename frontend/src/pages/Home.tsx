@@ -1,12 +1,17 @@
 import { Mic, Send, Settings, MapPinned, Brain, Bolt, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
+import { ChatChip } from "../components/ChatChip";
+import { FactSheet } from "../components/FactSheet";
 import { QuizModal } from "../components/QuizModal";
 import { DailyChallengeSheet } from "../components/DailyChallengeSheet";
+import { SpeakButton } from "../components/SpeakButton";
 import { useAppContext } from "../context/AppContext";
 import { animalProfiles } from "../data/animals";
+import type { Fact } from "../data/artenschutz";
 import { companions, defaultQuestionChips } from "../data/companions";
 import { moodByHappiness, pickRandom } from "../lib/app";
+import { collectTopicLinks, getFactById } from "../lib/factRegistry";
 import { todayKey } from "../lib/storage";
 
 type SpeechRecognitionResultEvent = {
@@ -34,7 +39,6 @@ const profileAliases: Array<{ id: string; label: string; aliases: string[] }> = 
   { id: "finn", label: "Finn", aliases: ["finn", "igel", "igeln"] },
   { id: "adler", label: "Adler", aliases: ["adler", "greifvogel", "greifvögel"] },
   { id: "kiko", label: "Kiko", aliases: ["kiko", "affe", "affen", "kapuzineraffe"] },
-  { id: "pinguin", label: "Pinguin", aliases: ["pinguin", "pinguine", "penguin", "penguins"] },
 ];
 
 const knownProfileIds = new Set(animalProfiles.map((profile) => profile.id));
@@ -54,11 +58,14 @@ export function Home() {
     addHappiness,
     consumeFeed,
     feedReadyAt,
-    quizReadyAt,
+    quizCooldownEndAt,
+    quizAttemptsInCycle,
+    quizUsedQuestionIds,
+    ensureQuizSessionStarted,
+    registerQuizAnswer,
     chatHistory,
     addMessage,
     daily,
-    completeQuiz,
     completeMapVisit,
     completeChallenge,
     addXp,
@@ -74,13 +81,31 @@ export function Home() {
   const companionFaceRef = useRef<HTMLDivElement | null>(null);
   const [feedAnimation, setFeedAnimation] = useState<null | { x: number; y: number; dx: number; dy: number }>(null);
   const [feedAnimationActive, setFeedAnimationActive] = useState(false);
+  const [openFact, setOpenFact] = useState<Fact | null>(null);
 
   const companion = useMemo(
     () => companions.find((c) => c.id === selectedCompanionId) ?? companions[0],
     [selectedCompanionId],
   );
   const messages = chatHistory[companion.id] ?? [];
-  const chips = useMemo(() => pickRandom(defaultQuestionChips, 4), []);
+  const askedQuestions = useMemo(() => {
+    const set = new Set<string>();
+    for (const message of messages) {
+      if (message.role === "user") {
+        set.add(message.content.trim().toLowerCase());
+      }
+    }
+    return set;
+  }, [messages]);
+  const randomDefaultChips = useMemo(
+    () => pickRandom(defaultQuestionChips, 2),
+    [companion.id],
+  );
+  const chips = useMemo(() => {
+    const all = [...companion.pinnedChips, ...randomDefaultChips];
+    return all.filter((chip) => !askedQuestions.has(chip.trim().toLowerCase()));
+  }, [companion.pinnedChips, randomDefaultChips, askedQuestions]);
+  const onChipSelect = useCallback((label: string) => setInput(label), []);
   const mood = moodByHappiness(happiness);
   const feedLocked = now < feedReadyAt;
   const remainingMs = Math.max(0, feedReadyAt - now);
@@ -88,8 +113,8 @@ export function Home() {
   const remainingMinutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
   const remainingSeconds = Math.floor((remainingMs % (60 * 1000)) / 1000);
   const feedTimer = `${String(remainingHours).padStart(2, "0")}:${String(remainingMinutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
-  const quizLocked = now < quizReadyAt;
-  const quizRemainingMs = Math.max(0, quizReadyAt - now);
+  const quizLocked = quizAttemptsInCycle >= 3 && quizCooldownEndAt > 0 && now < quizCooldownEndAt;
+  const quizRemainingMs = Math.max(0, quizCooldownEndAt - now);
   const quizRemainingMinutes = Math.floor((quizRemainingMs % (60 * 60 * 1000)) / (60 * 1000));
   const quizRemainingSeconds = Math.floor((quizRemainingMs % (60 * 1000)) / 1000);
   const quizTimer = `${String(quizRemainingMinutes).padStart(2, "0")}:${String(quizRemainingSeconds).padStart(2, "0")}`;
@@ -145,11 +170,13 @@ export function Home() {
       const data = (await response.json()) as { content?: string };
       const assistantContent = data.content ?? "Ups, ich brauche gerade eine kurze Pause.";
       const profileLinks = collectProfileLinks(trimmed, assistantContent);
+      const topicLinks = collectTopicLinks(trimmed, assistantContent);
       addMessage(companion.id, {
         role: "assistant",
         content: assistantContent,
         createdAt: Date.now(),
         profileLinks,
+        topicLinks,
       });
     } catch {
       addMessage(companion.id, {
@@ -225,15 +252,17 @@ export function Home() {
         </button>
         <button
           className="action-quiz"
+          type="button"
           onClick={() => {
             if (quizLocked) {
               setQuizLockedInfoOpen(true);
               return;
             }
+            ensureQuizSessionStarted();
             setQuizOpen(true);
           }}
         >
-          <Brain size={16} /> Quiz machen {quizLocked ? `🔒 ${quizTimer}` : ""}
+          <Brain size={16} /> Quiz {quizLocked ? `🔒 ${quizTimer}` : ""}
         </button>
         <button
           className="action-map"
@@ -245,7 +274,7 @@ export function Home() {
             navigate("/map");
           }}
         >
-          <MapPinned size={16} /> Besuche meine Freunde im Zoo
+          <MapPinned size={16} /> Karte
         </button>
         <button className="action-challenge" onClick={() => setChallengeOpen(true)}>
           <Bolt size={16} /> Heutige Challenge {challengeDoneToday ? `🔒 ${challengeTimer}` : ""}
@@ -254,9 +283,7 @@ export function Home() {
 
       <div className="chips-row">
         {chips.map((chip) => (
-          <button key={chip} onClick={() => setInput(chip)}>
-            {chip}
-          </button>
+          <ChatChip key={chip} label={chip} onSelect={onChipSelect} />
         ))}
       </div>
 
@@ -264,6 +291,11 @@ export function Home() {
         {messages.map((message, i) => (
           <article key={`${message.createdAt}-${i}`} className={`bubble ${message.role}`}>
             <p>{message.content}</p>
+            {message.role === "assistant" ? (
+              <div className="bubble-footer">
+                <SpeakButton text={message.content} label="Nachricht vorlesen" className="bubble-speak" />
+              </div>
+            ) : null}
             {message.role === "assistant" && message.profileLinks?.length ? (
               <div className="bubble-links">
                 {message.profileLinks.map((profileLink) => (
@@ -273,8 +305,34 @@ export function Home() {
                 ))}
               </div>
             ) : null}
+            {message.role === "assistant" && message.topicLinks?.length ? (
+              <div className="bubble-links">
+                {message.topicLinks.map((topicLink) => {
+                  const fact = getFactById(topicLink.factId);
+                  if (!fact) return null;
+                  return (
+                    <button
+                      key={topicLink.factId}
+                      className="bubble-link bubble-link--topic"
+                      onClick={() => setOpenFact(fact)}
+                    >
+                      <span aria-hidden>{topicLink.emoji}</span> {topicLink.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
           </article>
         ))}
+        {loading ? (
+          <article className="bubble assistant typing-bubble" aria-label={`${companion.name} tippt`}>
+            <span className="typing-dots" aria-hidden>
+              <span />
+              <span />
+              <span />
+            </span>
+          </article>
+        ) : null}
       </section>
 
       <div className="chat-input">
@@ -287,18 +345,21 @@ export function Home() {
         </button>
       </div>
 
-      <QuizModal
-        open={quizOpen}
-        companionName={companion.name}
-        onClose={() => setQuizOpen(false)}
-        onComplete={(score, totalQuestions) => {
-          completeQuiz();
-          if (score === totalQuestions) {
-            addHappiness(5);
-          }
-          addXp(20);
-        }}
-      />
+      {quizOpen ? (
+        <QuizModal
+          companionId={companion.id}
+          companionName={companion.name}
+          attemptsSoFar={quizAttemptsInCycle}
+          usedQuestionIds={quizUsedQuestionIds}
+          quizCooldownEndAt={quizCooldownEndAt}
+          onClose={() => setQuizOpen(false)}
+          onAnswer={(questionId, correct) => {
+            const result = registerQuizAnswer(questionId, correct);
+            if (result.happiness) addHappiness(result.happiness);
+            if (result.xp) addXp(result.xp);
+          }}
+        />
+      ) : null}
       {quizLockedInfoOpen ? (
         <div
           className="overlay"
@@ -315,16 +376,20 @@ export function Home() {
             <button className="modal-close-btn" type="button" onClick={() => setQuizLockedInfoOpen(false)} aria-label="Schließen">
               <X size={18} />
             </button>
-            <h3>Super gemacht! Du hast das Quiz abgeschlossen.</h3>
-            <p>
-              Das nächste Quiz ist bald wieder verfügbar ({quizTimer}). In der Zwischenzeit kannst du noch mehr lernen, damit du für das nächste Quiz bereit bist.
-            </p>
-            <button className="challenge-done-btn" type="button" onClick={() => setQuizLockedInfoOpen(false)}>
-              Verstanden
-            </button>
+            <h3>🧠 Quiz-Pause</h3>
+            <div className="quiz-feedback">
+              <p className="quiz-cooldown-hint">
+                Super gemacht! Du hast das Quiz abgeschlossen. Das nächste Quiz ist in{" "}
+                <strong>{quizTimer}</strong> wieder verfügbar. In der Zwischenzeit kannst du noch mehr lernen, damit du für das nächste Quiz bereit bist.
+              </p>
+              <button className="challenge-done-btn" type="button" onClick={() => setQuizLockedInfoOpen(false)}>
+                Verstanden
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
+      <FactSheet fact={openFact} onClose={() => setOpenFact(null)} />
       <DailyChallengeSheet
         open={challengeOpen}
         done={challengeDoneToday}

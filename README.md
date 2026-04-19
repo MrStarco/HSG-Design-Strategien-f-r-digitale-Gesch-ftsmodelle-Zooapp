@@ -4,25 +4,6 @@ High-Fidelity Prototyp (localhost) für den Kurskontext: eine mobile Lern-App f�
 
 Inspiration und Kontext zum Zoo: [walterzoo.ch](https://www.walterzoo.ch)
 
-## Tech Stack
-
-- Frontend: React + TypeScript + Vite + Tailwind CSS
-- Backend: Express + TypeScript (Chat-Proxy + YouTube-Zufallsvideo-Endpunkt)
-- AI: OpenAI Chat API (`gpt-4o-mini`) über minimalen Proxy-Endpunkt
-- Persistenz: komplett via `localStorage` (kein DB-Backend)
-
-## Projektstruktur
-
-```text
-Walter-Zoo-App/
-├── .env
-├── .env.secrets
-├── README.md
-├── package.json
-├── frontend/
-└── backend/
-```
-
 ## Voraussetzungen
 
 - Node.js 20+
@@ -67,14 +48,15 @@ npm run lint
 
 ## Enthaltene Prototype-Features
 
-- Onboarding mit 9 Tierbegleitern
-- Companion Home mit Happiness-System, Action Buttons und Chat
-- OpenAI-Companion-Chat (mit einfacher Memory via Chat-History in `localStorage`)
-- Daily Challenge, Quiz, XP-Logik
-- Zoo-Karte mit Events und Artenschutz-Facts
-- Tierprofile im Instagram-Stil mit Video-Overlay
+- Onboarding mit **10** Tierbegleitern (je mit eigener Begrüßung mit Artenschutz-Bezug und festen Demo-Chat-Vorschlägen)
+- Companion Home mit Happiness-System, Füttern mit Cooldown, Action-Buttons und Chat
+- OpenAI-Companion-Chat (Artenschutz im Fokus; Chat-Verlauf in `localStorage`)
+- Daily Challenge und XP
+- **Quiz:** pro Öffnung eine Frage; bis zu **drei** richtige Antworten pro 15-Minuten-Zyklus (Happiness/XP anteilig); erste Frage bevorzugt zum gewählten Begleiter; Timer läuft ab erstem Quiz-Klick und wird erst nach der dritten richtigen Antwort sichtbar (Details in `AppContext` / `QuizModal`)
+- Zoo-Karte mit Events und knappen Artenschutz-Facts
+- Tierprofile im Instagram-Stil mit Video-Overlay und Abschnitt **Schutzstatus** (Label + kurze Erklärung)
 - Floating Companion auf Nicht-Home-Screens
-- Desktop-Präsentationsmodus mit Phone-Frame
+- Desktop-Präsentationsmodus mit Phone-Frame; optional **Controller** + **Mirror** für Demos (siehe unten)
 
 ## Präsentationsmodus (Laptop)
 
@@ -120,3 +102,22 @@ Links:
 
 - App lokal: [http://localhost:5173](http://localhost:5173)
 - App im Netzwerk (bei `--host`): `http://<LAPTOP_IP>:5173`
+
+## Tech Stack
+
+- Frontend: React + TypeScript + Vite + Tailwind CSS
+- Backend: Express + TypeScript (Chat-Proxy + YouTube-Zufallsvideo-Endpunkt)
+- AI: OpenAI Chat API (`gpt-4o-mini`) über minimalen Proxy-Endpunkt
+- Persistenz: komplett via `localStorage` (kein DB-Backend; u.a. Begleiter, Chat, Happiness, XP, Daily, Feed-Timer, Quiz-Session mit Cooldown)
+
+## Projektstruktur
+
+```text
+Walter-Zoo-App/
+├── .env
+├── .env.secrets
+├── README.md
+├── package.json
+├── frontend/
+└── backend/
+```

@@ -2,8 +2,8 @@ import { Home, Map } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const items = [
-  { to: "/", label: "Zuhause", icon: Home },
-  { to: "/map", label: "Zoo-Karte", icon: Map },
+  { to: "/", label: "Home", icon: Home },
+  { to: "/map", label: "Karte", icon: Map },
 ];
 
 export function BottomNav() {

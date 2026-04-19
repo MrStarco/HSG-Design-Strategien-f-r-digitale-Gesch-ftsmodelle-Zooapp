@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import type { VideoItem } from "../types";
+import type { TopicLink } from "../lib/factRegistry";
 import { readStorage, storageKeys, writeStorage } from "../lib/storage";
 
 type Props = {
@@ -9,6 +10,8 @@ type Props = {
   showCompanionText?: boolean;
   showDescription?: boolean;
   showUnavailableHint?: boolean;
+  topicLinks?: TopicLink[];
+  onTopicSelect?: (link: TopicLink) => void;
   onClose: () => void;
 };
 
@@ -18,6 +21,8 @@ export function VideoPlayer({
   showCompanionText = true,
   showDescription = true,
   showUnavailableHint = true,
+  topicLinks,
+  onTopicSelect,
   onClose,
 }: Props) {
   useEffect(() => {
@@ -28,10 +33,16 @@ export function VideoPlayer({
 
   if (!video) return null;
   const hasYoutubeVideo = Boolean(video.youtubeVideoId);
+  const hasTopics = Boolean(topicLinks?.length && onTopicSelect);
 
   return (
     <div className="overlay">
       <div className="video-player">
+        <div className="video-player-header">
+          <button className="modal-close-btn" type="button" onClick={onClose} aria-label="Schließen">
+            <X size={18} />
+          </button>
+        </div>
         {hasYoutubeVideo ? (
           <iframe
             className="video-frame"
@@ -50,15 +61,33 @@ export function VideoPlayer({
             <div className="pulse-play">▶</div>
           </div>
         )}
-        <h3>{video.title}</h3>
-        {showDescription ? <p>{video.description}</p> : null}
-        {showCompanionText && companionName ? <small>{companionName} schaut auch zu! 👀</small> : null}
-        {showUnavailableHint && !hasYoutubeVideo ? (
-          <p className="video-finish">Dieses Video hat keine direkte Vorschau. Tippe ein anderes Video an.</p>
-        ) : null}
-        <button className="modal-close-btn" type="button" onClick={onClose} aria-label="Schließen">
-          <X size={18} />
-        </button>
+        <div className="video-player-body">
+          <h3>{video.title}</h3>
+          {showDescription ? <p>{video.description}</p> : null}
+          {showCompanionText && companionName ? <small>{companionName} schaut auch zu! 👀</small> : null}
+          {showUnavailableHint && !hasYoutubeVideo ? (
+            <p className="video-finish">Dieses Video hat keine direkte Vorschau. Tippe ein anderes Video an.</p>
+          ) : null}
+          {hasTopics ? (
+            <div className="video-topics-panel" aria-label="Passende Themen zum Video">
+              <span className="video-topics-label">Passt zum Thema:</span>
+              <div className="video-topics video-topics--modal">
+                {topicLinks!.map((topic) => (
+                  <button
+                    key={topic.factId}
+                    type="button"
+                    className="topic-chip"
+                    onClick={() => onTopicSelect!(topic)}
+                    aria-label={`${topic.label} – Mehr erfahren`}
+                  >
+                    <span aria-hidden>{topic.emoji}</span>
+                    <span>{topic.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );

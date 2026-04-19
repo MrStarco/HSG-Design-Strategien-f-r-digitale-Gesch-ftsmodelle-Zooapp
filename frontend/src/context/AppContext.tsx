@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { companions } from "../data/companions";
 import type { ChatMessage } from "../types";
 import { readStorage, storageKeys, todayKey, writeStorage } from "../lib/storage";
+import { emitHappinessGain } from "../lib/happinessFx";
 
 type DailyState = {
   dateKey: string;
@@ -18,11 +19,17 @@ type AppContextType = {
   consumeFeed: () => boolean;
   feedReadyAt: number;
   resetFeedTimer: () => void;
-  quizReadyAt: number;
+  /** Ende des Quiz-Cooldowns (Session-Start + 15 min), 0 wenn keine laufende Session */
+  quizCooldownEndAt: number;
+  quizAttemptsInCycle: number;
+  quizUsedQuestionIds: string[];
+  ensureQuizSessionStarted: () => void;
+  registerQuizAnswer: (questionId: string, correct: boolean) => { happiness: number; xp: number; completedCycle: boolean };
   chatHistory: Record<string, ChatMessage[]>;
   addMessage: (companionId: string, message: ChatMessage) => void;
   daily: DailyState;
-  completeQuiz: () => boolean;
+  resetQuizSession: () => void;
+  /** Demo/Mirror: Quiz-Session zurücksetzen (wie früher resetQuizTimer) */
   resetQuizTimer: () => void;
   completeMapVisit: () => boolean;
   completeChallenge: () => boolean;
@@ -56,7 +63,7 @@ function buildGreetingMessage(companionId: string): ChatMessage[] {
   return [
     {
       role: "assistant",
-      content: `Hallo! Ich bin ${companion.name}! Ich freue mich so sehr, dich kennenzulernen! Stell mir deine erste Frage! 🐾`,
+      content: companion.greetingMessage,
       createdAt: Date.now(),
     },
   ];
@@ -79,19 +86,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
   const [xp, setXp] = useState<number>(() => readStorage<number>(storageKeys.xp, 0));
   const [feedReadyAt, setFeedReadyAt] = useState<number>(() => readStorage<number>(storageKeys.feedReadyAt, 0));
-  const [quizReadyAt, setQuizReadyAt] = useState<number>(() => readStorage<number>(storageKeys.quizReadyAt, 0));
+  const [quizSessionStart, setQuizSessionStart] = useState<number | null>(() => readStorage<number | null>(storageKeys.quizSessionStart, null));
+  const [quizAttemptsInCycle, setQuizAttemptsInCycle] = useState<number>(() => readStorage<number>(storageKeys.quizAttempts, 0));
+  const [quizUsedQuestionIds, setQuizUsedQuestionIds] = useState<string[]>(() => readStorage<string[]>(storageKeys.quizUsedQuestionIds, []));
 
   useEffect(() => writeStorage(storageKeys.companion, selectedCompanionId), [selectedCompanionId]);
   useEffect(() => writeStorage(storageKeys.chat, chatHistory), [chatHistory]);
   useEffect(() => writeStorage(storageKeys.daily, daily), [daily]);
   useEffect(() => writeStorage(storageKeys.xp, xp), [xp]);
   useEffect(() => writeStorage(storageKeys.feedReadyAt, feedReadyAt), [feedReadyAt]);
-  useEffect(() => writeStorage(storageKeys.quizReadyAt, quizReadyAt), [quizReadyAt]);
+  useEffect(() => writeStorage(storageKeys.quizSessionStart, quizSessionStart), [quizSessionStart]);
+  useEffect(() => writeStorage(storageKeys.quizAttempts, quizAttemptsInCycle), [quizAttemptsInCycle]);
+  useEffect(() => writeStorage(storageKeys.quizUsedQuestionIds, quizUsedQuestionIds), [quizUsedQuestionIds]);
   useEffect(() => writeStorage(storageKeys.happiness, { value: happiness, updatedAt: Date.now() }), [happiness]);
 
   const syncDay = () => {
     setDaily((prev) => (prev.dateKey === todayKey() ? prev : initialDaily()));
   };
+
+  useEffect(() => {
+    const tick = () => {
+      const now = Date.now();
+      if (quizSessionStart === null) return;
+      const end = quizSessionStart + QUIZ_COOLDOWN_MS;
+      if (now >= end) {
+        setQuizSessionStart(null);
+        setQuizAttemptsInCycle(0);
+        setQuizUsedQuestionIds([]);
+      }
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [quizSessionStart]);
 
   const value = useMemo<AppContextType>(
     () => ({
@@ -113,7 +140,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       },
       happiness,
-      addHappiness: (points) => setHappiness((h) => Math.max(0, Math.min(100, h + points))),
+      addHappiness: (points) => {
+        if (points > 0) emitHappinessGain(points);
+        setHappiness((h) => Math.max(0, Math.min(100, h + points)));
+      },
       consumeFeed: () => {
         const now = Date.now();
         if (now < feedReadyAt) return false;
@@ -122,7 +152,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       feedReadyAt,
       resetFeedTimer: () => setFeedReadyAt(0),
-      quizReadyAt,
+      quizCooldownEndAt: quizSessionStart ? quizSessionStart + QUIZ_COOLDOWN_MS : 0,
+      quizAttemptsInCycle,
+      quizUsedQuestionIds,
+      ensureQuizSessionStarted: () => {
+        if (quizAttemptsInCycle === 0 && quizSessionStart === null) {
+          setQuizSessionStart(Date.now());
+        }
+      },
+      registerQuizAnswer: (questionId: string, correct: boolean) => {
+        const nextAttempt = quizAttemptsInCycle + 1;
+        setQuizUsedQuestionIds((prev) => (prev.includes(questionId) ? prev : [...prev, questionId]));
+        setQuizAttemptsInCycle(nextAttempt);
+        const happiness = correct ? 2 : 0;
+        const xp = correct ? 7 : 0;
+        if (nextAttempt === 3) {
+          syncDay();
+          setDaily((prev) => {
+            if (prev.quizDone) return prev;
+            return { ...prev, quizDone: true };
+          });
+        }
+        return { happiness, xp, completedCycle: nextAttempt === 3 };
+      },
       chatHistory,
       addMessage: (companionId, message) => {
         setChatHistory((prev) => ({
@@ -131,20 +183,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }));
       },
       daily,
-      completeQuiz: () => {
-        const now = Date.now();
-        if (now < quizReadyAt) return false;
-        setQuizReadyAt(now + QUIZ_COOLDOWN_MS);
-        syncDay();
-        let award = false;
-        setDaily((prev) => {
-          if (prev.quizDone) return prev;
-          award = true;
-          return { ...prev, quizDone: true };
-        });
-        return award;
+      resetQuizSession: () => {
+        setQuizSessionStart(null);
+        setQuizAttemptsInCycle(0);
+        setQuizUsedQuestionIds([]);
       },
-      resetQuizTimer: () => setQuizReadyAt(0),
+      resetQuizTimer: () => {
+        setQuizSessionStart(null);
+        setQuizAttemptsInCycle(0);
+        setQuizUsedQuestionIds([]);
+      },
       completeMapVisit: () => {
         syncDay();
         let award = false;
@@ -176,13 +224,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setChatHistory({});
         setHappiness(50);
         setFeedReadyAt(0);
-        setQuizReadyAt(0);
+        setQuizSessionStart(null);
+        setQuizAttemptsInCycle(0);
+        setQuizUsedQuestionIds([]);
         setDaily((prev) =>
           prev.dateKey === todayKey() ? { ...prev, challengeDone: false } : { ...initialDaily(), challengeDone: false },
         );
       },
     }),
-    [chatHistory, daily, feedReadyAt, happiness, quizReadyAt, selectedCompanionId, xp],
+    [chatHistory, daily, feedReadyAt, happiness, quizAttemptsInCycle, quizSessionStart, quizUsedQuestionIds, selectedCompanionId, xp],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

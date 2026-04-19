@@ -10,6 +10,8 @@ export type Companion = {
   habitat: string;
   personality: string;
   systemPrompt: string;
+  greetingMessage: string;
+  pinnedChips: [string, string];
 };
 
 export type ChatMessage = {
@@ -17,6 +19,7 @@ export type ChatMessage = {
   content: string;
   createdAt: number;
   profileLinks?: Array<{ id: string; label: string }>;
+  topicLinks?: Array<{ factId: string; label: string; emoji: string }>;
 };
 
 export type QuizQuestion = {
@@ -24,6 +27,7 @@ export type QuizQuestion = {
   question: string;
   answers: string[];
   correctIndex: number;
+  companionId?: string;
 };
 
 export type DailyChallenge = {
@@ -31,6 +35,21 @@ export type DailyChallenge = {
   title: string;
   description: string;
   emoji: string;
+};
+
+export type ThreatKind =
+  | "habitat"
+  | "poaching"
+  | "climate"
+  | "overfishing"
+  | "pollution"
+  | "conflict"
+  | "traffic";
+
+export type ConservationStatus = {
+  label: string;
+  description: string;
+  threats?: ThreatKind[];
 };
 
 export type AnimalProfile = {
@@ -45,6 +64,7 @@ export type AnimalProfile = {
   story: string;
   favoriteActivity: string;
   abroadFriends: string;
+  conservationStatus: ConservationStatus;
   categories: Array<{ key: string; label: string }>;
 };
 

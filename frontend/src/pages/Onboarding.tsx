@@ -5,7 +5,10 @@ export function Onboarding() {
   const { selectCompanion } = useAppContext();
   return (
     <main className="page onboarding">
-      <h1>Suche dir deinen neuen Freund aus und lernt zusammen über Artenschutz und das Leben im Zoo 🌿</h1>
+      <h1>Wähle deinen Begleiter 🌿</h1>
+      <p className="onboarding-subtitle">
+        Zusammen lernt ihr über Artenschutz und die Tiere im Walter Zoo.
+      </p>
       <div className="companion-grid">
         {companions.map((companion) => (
           <button
@@ -13,8 +16,9 @@ export function Onboarding() {
             className="companion-card"
             style={{ background: companion.cardColor }}
             onClick={() => selectCompanion(companion.id)}
+            aria-label={`${companion.name} – ${companion.animal}`}
           >
-            <div className="companion-face" style={{ width: 80, height: 80, fontSize: "3rem" }} aria-hidden>
+            <div className="companion-face" aria-hidden>
               {companion.emoji}
             </div>
             <strong>{companion.name}</strong>
