@@ -80,26 +80,43 @@ npm run lint
 
 Die App ist mobile-first (max. 430px), wird aber auf dem Laptop in einem visuellen Smartphone-Rahmen dargestellt. So wirkt der Prototyp bei Präsentationen bewusst als Mobile-App und nicht wie eine schmale Rohfassung.
 
-## Mirror Mode (Laptop steuert Handy)
+## Schnellzugriff: Ansichten & Links
 
-Mit Mirror Mode laeuft der Demo-Controller jetzt als eigene Oberfläche auf einem separaten Port. So bleibt die App-Ansicht sauber (ohne Demo-Panel) und du steuerst alles von einer zweiten UI.
+Nach dem Start kannst du je nach Bedarf zwischen einer Ansicht **mit Controller** und einer **simplen Ansicht** ohne Controller unterscheiden.
 
-1. Projekt inkl. Controller im Mobile-Setup starten:
+### Ansicht mit Controller
+
+Start:
 
 ```bash
 npm run dev:mobile:controller
 ```
 
-2. Laptop-IP auslesen:
+Links:
+
+- Controller UI (Laptop): [http://localhost:5174](http://localhost:5174)
+- App-Ansicht am Laptop: [http://localhost:5173](http://localhost:5173)
+- App Vollbildansicht Laptop: [http://localhost:5173/?role=mirror](http://localhost:5173/?role=mirror)
+- Mirror am Handy (Demo): `http://<LAPTOP_IP>:5173?role=mirror`
+- Controller im Netzwerk (Demo): `http://<LAPTOP_IP>:5174`
+
+IP manuell pruefen:
 
 ```bash
 npm run ip:laptop
+# alternativ direkt:
+ipconfig getifaddr en0 || ipconfig getifaddr en1
 ```
 
-3. URLs im Browser oeffnen:
+### Simple Ansicht (ohne Controller)
 
-- Laptop (Controller UI): `http://<LAPTOP_IP>:5174`
-- Handy (Mirror): `http://<LAPTOP_IP>:5173?role=mirror`
+Start:
 
-Was synchronisiert wird:
-- Demo-Commands vom Controller (`Companion zuruecksetzen`, Feed-/Quiz-/Challenge-Reset, `Happiness setzen`) werden live auf alle verbundenen App-Clients uebertragen.
+```bash
+npm run dev
+```
+
+Links:
+
+- App lokal: [http://localhost:5173](http://localhost:5173)
+- App im Netzwerk (bei `--host`): `http://<LAPTOP_IP>:5173`

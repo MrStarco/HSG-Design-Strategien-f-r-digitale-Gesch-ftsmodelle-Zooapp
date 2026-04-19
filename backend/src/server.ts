@@ -128,10 +128,12 @@ server.on("upgrade", (request, socket, head) => {
 });
 
 wss.on("connection", (client) => {
-  client.on("message", (payload) => {
+  client.on("message", (payload, isBinary) => {
+    if (isBinary) return;
+    const textPayload = payload.toString();
     for (const peer of wss.clients) {
       if (peer !== client && peer.readyState === WebSocket.OPEN) {
-        peer.send(payload);
+        peer.send(textPayload);
       }
     }
   });
